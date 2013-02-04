@@ -9,12 +9,12 @@
 // Node for the link list
 typedef struct Node_ Node;
 struct Node_ {
-    int data;
+    void* data;
     Node* next;
 };
 
 // Create a new node with data and next element (can be NULL)
-Node* node_new( int data, Node* next );
+Node* node_new( void* data, Node* next );
 
 // Link list structure
 typedef struct LList_ {
@@ -27,16 +27,13 @@ LList* llist_new();
 // Traverse the linked list and return its size
 int llist_size( LList* lst );
 
-// Traverse the linked list and print each element
-void llist_print( LList* lst );
-
-int llist_get( LList* lst, int idx );
+void* llist_get( LList* lst, int idx );
 // Add a new element at the end of the list
-LList* llist_append( LList* lst, int data );
+LList* llist_append( LList* lst, void* data );
 // Add a new element at the beginning of the list
-LList* llist_prepend( LList* lst, int data );
+LList* llist_prepend( LList* lst, void* data );
 // Add a new element at the @idx index
-LList* llist_insert( LList* lst, int idx, int data );
+LList* llist_insert( LList* lst, int idx, void* data );
 
 // Remove an element from the end of the list
 LList* llist_remove_last( LList* lst );
@@ -44,6 +41,8 @@ LList* llist_remove_last( LList* lst );
 LList* llist_remove_first( LList* lst );
 // Remove an element from an arbitrary position in the list
 LList* llist_remove( LList* lst, int idx );
+// Clears the list
+LList* llist_clear( LList* lst );
 
 #endif // LLIST_H
 

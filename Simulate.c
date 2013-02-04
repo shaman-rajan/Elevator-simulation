@@ -5,6 +5,7 @@
  *      Author: Rajan
  */
 
+#include <math.h>
 #include "Simulate.h"
 
 int main(int argc, char* argv[]) {
@@ -22,19 +23,26 @@ int main(int argc, char* argv[]) {
 		int time_left = LOOPTIME;
 
 		while(numGroups != 0) {
-			int passed_time = rand()%time_left;
+			int passed_time = time_left > 0 ? rand()%time_left : 0;
 
-			// TODO: Move the elevators
+			// Move the elevators
 			moveElevator(elevator1, passed_time);
 			moveElevator(elevator2, passed_time);
 
+			// Generate group and choose which elevator serves it
 			group* grp = newRandomGroup();
 			elevator* chosenElevator = chooseElevator(elevator1, elevator2, grp->from, grp->to);
-			if(grp->from > grp->to) llist_append(chosenElevator->downDestinations, grp);
-			else llist_append(chosenElevator->upDestinations, grp);
+			if(grp->direction > 0) {
+				chosenElevator->upStops[grp->from] = 1;
+				chosenElevator->upStops[grp->to] = 1;
+				llist_append(chosenElevator->waitingGroups[grp->from], grp);
+			} else {
+				chosenElevator->downStops[grp->from] = 1;
+				chosenElevator->downStops[grp->to] = 1;
+				llist_append(chosenElevator->waitingGroups[grp->from], grp);
+			}
 
-
-
+			time_left -= passed_time;
 			numGroups--;
 		}
 
@@ -47,11 +55,12 @@ int main(int argc, char* argv[]) {
 elevator* newElevator() {
 	elevator* temp = (elevator*) malloc(sizeof(elevator));
 	temp->currentFloor = 0;
-	temp->maxDown = 0;
-	temp->maxUp = 0;
-	temp->downDestinations = (LList*)malloc(sizeof(LList)*MAX_DESTINATIONS);
-	temp->upDestinations = (LList*)malloc(sizeof(LList)*MAX_DESTINATIONS);
-	int i;
+	temp->pendingActionTime = 0;
+	int i; for(i=0; i<FLOORS; ++i) {
+		temp->downStops[i] = temp->upStops[i] = 0;
+		temp->insideElevator[i] = llist_new();
+		temp->waitingGroups[i] = llist_new();
+	}
 	temp->direction = 0;
 	temp->totalWeight = 0;
 	return temp;
@@ -106,28 +115,131 @@ int getRandomSize() {
 }
 
 elevator* chooseElevator( elevator* el1, elevator* el2, int from, int to ) {
+	// TODO: Write pseud algo here
+
 	return abs(el1->currentFloor - from) < abs(el2->currentFloor - from) ? el1 : el2;
 }
 
 void moveElevator(elevator* el, int time) {
-	if(el->direction == 1) {
-		float gap = getNext(el->upDestinations, el->currentFloor) - el->currentFloor;
 
+	if(el->pendingActionTime > time) {
+		el->pendingActionTime -= time;
+		return;
+	} else {
+		time -= el->pendingActionTime;
+		el->pendingActionTime = 0;
+	}
 
-		/*float gap = el->maxUp - el->currentFloor;
-		int time_used = gap * FLOORTIME;
-		if(time_used > time)
-			el->currentFloor += time*1.0/FLOORTIME;
-		else {
-			time = time - time_used;
-			if(el->maxDown < el->maxUp) {
-				el->direction = -1;
-				el->maxUp = el->maxDown;
+	while(1) {
+		if(el->direction == 1) {
+			int next_floor = getNextUp(el->upStops, el->currentFloor);
+			if(next_floor >= 0) {
+
+				// Inter-floor time
+				float gap = next_floor - el->currentFloor;
+				time -= gap * FLOORTIME;
+				if(time <= 0) {
+					el->currentFloor = el->currentFloor + time * 1.0 / FLOORTIME;
+					return;
+				}
+				el->currentFloor = next_floor;
+				el->upStops[next_floor] = 0;
+
+				// At floor time
+				time -= getOnAndOff(el, next_floor);
+				if(time <= 0) {
+					el->pendingActionTime = -time;
+					return;
+				}
+
+			} else {
+				int i;
+				for(i=0; i<FLOORS; ++i) {
+					if(el->downStops[i] == 1) {
+						el->direction = -1;
+						continue;
+					}
+				}
+				el->direction = 0;
 			}
-		}*/
+		} else if(el->direction == -1) {
+			int next_floor = getNextDown(el->upStops, el->currentFloor);
+			if(next_floor >= 0) {
+
+				// Inter-floor time
+				float gap =  el->currentFloor - next_floor;
+				time -= gap * FLOORTIME;
+				if(time <= 0) {
+					el->currentFloor = el->currentFloor - time * 1.0 / FLOORTIME;
+					return;
+				}
+				el->currentFloor = next_floor;
+				el->downStops[next_floor] = 0;
+
+				// At floor time
+				time -= getOnAndOff(el, next_floor);
+				if(time <= 0) {
+					el->pendingActionTime = -time;
+					return;
+				}
+
+			} else {
+				int i;
+				for(i=0; i<FLOORS; ++i) {
+					if(el->upStops[i] == 1) {
+						el->direction = 1;
+						continue;
+					}
+				}
+				el->direction = 0;
+			}
+		}
+
 	}
 }
 
-int getNext(LList* dests, float floor) {
-	return 0;
+int getNextUp(int dests[], float floor) {
+	int next = floor + 1;
+	while(next != floor) {
+		if(dests[next] == 1) return next;
+		next = (next + 1) % FLOORS;
+	}
+	return -1;
+}
+
+int getNextDown(int dests[], float floor) {
+	int next = ceil(floor - 1);
+	while(next != floor) {
+		if(dests[next] == 1) return next;
+		next = (next - 1) % FLOORS;
+	}
+	return -1;
+}
+
+int getOnAndOff(elevator* el, int floor) {
+	int count = 0;
+	Node* temp = el->insideElevator[floor]->head;
+	while(temp != NULL) {
+		count += ((group*)temp->data)->numberOfPeople;
+		el->totalWeight -= ((group*)temp->data)->weight;
+		temp = temp->next;
+	}
+	llist_clear(el->insideElevator[floor]);
+
+	temp = el->waitingGroups[floor]->head;
+	while(temp != NULL) {
+		count += ((group*)temp->data)->numberOfPeople;
+		el->totalWeight += ((group*)temp->data)->weight;
+		temp = temp->next;
+	}
+	// FIXME: Do not clear.. only some need to be deleted
+
+	// Also, add these to groups inside elevator
+	llist_clear(el->waitingGroups[floor]);
+
+	if(el->totalWeight > WEIGHT_LIMIT) {
+		// TODO: Some code here
+	}
+
+	return count * LIFT_ENTRY_TIME;
 }

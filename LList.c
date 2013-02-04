@@ -7,7 +7,7 @@
 #include "LList.h"
 #include <stdlib.h>
 
-Node* node_new( int data, Node* next )
+Node* node_new( void* data, Node* next )
 {
     Node* new = malloc( sizeof(Node) );
     new -> data = data;
@@ -39,21 +39,7 @@ int llist_size( LList* list )
     return i;
 }
 
-void llist_print( LList* list )
-{
-    Node* next_ptr;
-    next_ptr = list -> head;
-
-    while( next_ptr != NULL ) {
-        if( next_ptr != list -> head )
-            printf("%d ", next_ptr -> data);
-
-        next_ptr = next_ptr -> next;
-    }
-    printf("\n");
-}
-
-int llist_get( LList* lst, int idx )
+void* llist_get( LList* lst, int idx )
 {
     Node* next_ptr;
     int i;
@@ -69,7 +55,7 @@ int llist_get( LList* lst, int idx )
     return 0;
 }
 
-LList* llist_append( LList* lst, int data )
+LList* llist_append( LList* lst, void* data )
 {
     Node* next_ptr;
     next_ptr = lst -> head;
@@ -77,12 +63,12 @@ LList* llist_append( LList* lst, int data )
     while( next_ptr -> next != NULL )
         next_ptr = next_ptr -> next;
 
-   next_ptr->next = node_new( data, NULL );
+    next_ptr->next = node_new( data, NULL );
     return lst;
 }
 
 // considering head is not a part of the list
-LList* llist_prepend( LList* lst, int data )
+LList* llist_prepend( LList* lst, void* data )
 {
     Node* new = node_new( data, ( lst -> head ) -> next );
     ( lst -> head ) -> next = new;
@@ -90,7 +76,7 @@ LList* llist_prepend( LList* lst, int data )
     return lst;
 }
 
-LList* llist_insert( LList* lst, int idx, int data )
+LList* llist_insert( LList* lst, int idx, void* data )
 {   
     Node* traverse_ptr;
     Node* new;
@@ -155,4 +141,9 @@ LList* llist_remove( LList* lst, int idx )
     return lst;
 }
 
+LList* llist_clear( LList* lst )
+{
+	while(llist_size(lst) != 0) lst = llist_remove_first(lst);
+	return lst;
+}
 
