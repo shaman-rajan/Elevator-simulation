@@ -13,8 +13,11 @@ int main(int argc, char* argv[]) {
 	elevator* elevator1 = newElevator();
 	elevator* elevator2 = newElevator();
 
-	while(!kbhit() || getch() != 'q') {
+	int debug_count = 0;
 
+	while(!kbhit() || getch() != 'q') {
+		printf("%d",debug_count);
+		debug_count++;
 		// Generate number of groups arriving in next interval
 		int numGroups = getNumberOfGroups();
 
@@ -32,6 +35,17 @@ int main(int argc, char* argv[]) {
 			// Generate group and choose which elevator serves it
 			group* grp = newRandomGroup();
 			elevator* chosenElevator = chooseElevator(elevator1, elevator2, grp->from, grp->to);
+			if(chosenElevator->direction == 0) {
+				if(chosenElevator->currentFloor > grp->from) {
+					chosenElevator->direction = -1;
+					chosenElevator->downStops[grp->from] = 1;
+				} else {
+					chosenElevator->direction = 1;
+					chosenElevator->upStops[grp->from] = 1;
+				}
+
+			}
+
 			if(grp->direction > 0) {
 				chosenElevator->upStops[grp->from] = 1;
 				chosenElevator->upStops[grp->to] = 1;
@@ -45,6 +59,9 @@ int main(int argc, char* argv[]) {
 			time_left -= passed_time;
 			numGroups--;
 		}
+
+		moveElevator(elevator1, time_left);
+		moveElevator(elevator2, time_left);
 
 	}
 
@@ -90,7 +107,7 @@ group* newRandomGroup() {
 	grp->from = rand() % FLOORS;
 	grp->to = rand() % FLOORS;
 	while(grp->to == grp->from) grp->to = rand() % FLOORS;
-	grp->direction = (grp->from - grp->to)/abs(grp->from - grp->to);
+	grp->direction = (grp->to - grp->from)/abs(grp->from - grp->to);
 	grp->Patience = (rand() % (MAX_WAIT - MIN_WAIT)) + MIN_WAIT;
 	grp->weight = 0;
 	for(i=0; i<grp->numberOfPeople; ++i) grp->weight += (rand() % (MAX_WEIGHT - MIN_WEIGHT)) + MIN_WEIGHT;
@@ -122,6 +139,7 @@ elevator* chooseElevator( elevator* el1, elevator* el2, int from, int to ) {
 
 void moveElevator(elevator* el, int time) {
 
+	// In case the elevator is stopped at some floor, waiting for doors to close
 	if(el->pendingActionTime > time) {
 		el->pendingActionTime -= time;
 		return;
@@ -135,11 +153,20 @@ void moveElevator(elevator* el, int time) {
 			int next_floor = getNextUp(el->upStops, el->currentFloor);
 			if(next_floor >= 0) {
 
+				// In case no more groups want to go above the current floor,
+				// elevator now changes direction. It will at least go till the floor
+				// required by group waiting to go down.
+				if(next_floor < el->currentFloor) {
+					el->downStops[next_floor] = 1;
+					el->direction = -1;
+					continue;
+				}
+
 				// Inter-floor time
 				float gap = next_floor - el->currentFloor;
 				time -= gap * FLOORTIME;
 				if(time <= 0) {
-					el->currentFloor = el->currentFloor + time * 1.0 / FLOORTIME;
+					el->currentFloor = el->currentFloor + (time + gap * FLOORTIME) * 1.0 / FLOORTIME;
 					return;
 				}
 				el->currentFloor = next_floor;
@@ -161,16 +188,26 @@ void moveElevator(elevator* el, int time) {
 					}
 				}
 				el->direction = 0;
+				return;
 			}
 		} else if(el->direction == -1) {
-			int next_floor = getNextDown(el->upStops, el->currentFloor);
+			int next_floor = getNextDown(el->downStops, el->currentFloor);
 			if(next_floor >= 0) {
+
+				// In case no more groups want to go above the current floor,
+				// elevator now changes direction. It will at least go till the floor
+				// required by group waiting to go down.
+				if(next_floor > el->currentFloor) {
+					el->upStops[next_floor] = 1;
+					el->direction = 1;
+					continue;
+				}
 
 				// Inter-floor time
 				float gap =  el->currentFloor - next_floor;
 				time -= gap * FLOORTIME;
 				if(time <= 0) {
-					el->currentFloor = el->currentFloor - time * 1.0 / FLOORTIME;
+					el->currentFloor = el->currentFloor - (time + gap * FLOORTIME) * 1.0 / FLOORTIME;
 					return;
 				}
 				el->currentFloor = next_floor;
@@ -192,33 +229,34 @@ void moveElevator(elevator* el, int time) {
 					}
 				}
 				el->direction = 0;
+				return;
 			}
-		}
+		} else return;
 
 	}
 }
 
 int getNextUp(int dests[], float floor) {
-	int next = floor + 1;
-	while(next != floor) {
+	int next = ceil(floor);
+	do {
 		if(dests[next] == 1) return next;
 		next = (next + 1) % FLOORS;
-	}
+	} while(next != ceil(floor));
 	return -1;
 }
 
 int getNextDown(int dests[], float floor) {
-	int next = ceil(floor - 1);
-	while(next != floor) {
+	int next = floor;
+	do {
 		if(dests[next] == 1) return next;
 		next = (next - 1) % FLOORS;
-	}
+	} while(next != (int)floor);
 	return -1;
 }
 
 int getOnAndOff(elevator* el, int floor) {
 	int count = 0;
-	Node* temp = el->insideElevator[floor]->head;
+	Node* temp = el->insideElevator[floor]->head->next;
 	while(temp != NULL) {
 		count += ((group*)temp->data)->numberOfPeople;
 		el->totalWeight -= ((group*)temp->data)->weight;
@@ -226,7 +264,7 @@ int getOnAndOff(elevator* el, int floor) {
 	}
 	llist_clear(el->insideElevator[floor]);
 
-	temp = el->waitingGroups[floor]->head;
+	temp = el->waitingGroups[floor]->head->next;
 	while(temp != NULL) {
 		count += ((group*)temp->data)->numberOfPeople;
 		el->totalWeight += ((group*)temp->data)->weight;
