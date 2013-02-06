@@ -48,12 +48,10 @@ int main(int argc, char* argv[]) {
 
 			if(grp->direction > 0) {
 				chosenElevator->upStops[grp->from] = 1;
-				chosenElevator->upStops[grp->to] = 1;
-				llist_append(chosenElevator->waitingGroups[grp->from], grp);
+				llist_append(chosenElevator->waitingGroups[grp->from][1], grp);
 			} else {
 				chosenElevator->downStops[grp->from] = 1;
-				chosenElevator->downStops[grp->to] = 1;
-				llist_append(chosenElevator->waitingGroups[grp->from], grp);
+				llist_append(chosenElevator->waitingGroups[grp->from][0], grp);
 			}
 
 			time_left -= passed_time;
@@ -76,7 +74,8 @@ elevator* newElevator() {
 	int i; for(i=0; i<FLOORS; ++i) {
 		temp->downStops[i] = temp->upStops[i] = 0;
 		temp->insideElevator[i] = llist_new();
-		temp->waitingGroups[i] = llist_new();
+		temp->waitingGroups[i][0] = llist_new();
+		temp->waitingGroups[i][1] = llist_new();
 	}
 	temp->direction = 0;
 	temp->totalWeight = 0;
@@ -257,24 +256,39 @@ int getNextDown(int dests[], float floor) {
 
 int getOnAndOff(elevator* el, int floor) {
 	int count = 0;
+
+	// All the groups who get off here will go out
 	Node* temp = el->insideElevator[floor]->head->next;
 	while(temp != NULL) {
 		count += ((group*)temp->data)->numberOfPeople;
 		el->totalWeight -= ((group*)temp->data)->weight;
 		temp = temp->next;
 	}
-	llist_clear(el->insideElevator[floor]);
+	llist_clear_memory(el->insideElevator[floor]);
 
-	temp = el->waitingGroups[floor]->head->next;
-	while(temp != NULL) {
-		count += ((group*)temp->data)->numberOfPeople;
-		el->totalWeight += ((group*)temp->data)->weight;
-		temp = temp->next;
+	// If elevator going down, then only those groups should get in.
+	if(el->direction == -1) {
+		temp = el->waitingGroups[floor][0]->head->next;
+		while(temp != NULL) {
+			llist_append(el->insideElevator[((group*)temp->data)->to], (group*)temp->data);
+			count += ((group*)temp->data)->numberOfPeople;
+			el->totalWeight += ((group*)temp->data)->weight;
+			temp = temp->next;
+		}
+		llist_clear_save_nodes(el->waitingGroups[floor][0]);
 	}
-	// FIXME: Do not clear.. only some need to be deleted
 
-	// Also, add these to groups inside elevator
-	llist_clear(el->waitingGroups[floor]);
+	// Next, for elevator going up.
+	else if(el->direction == 1) {
+		temp = el->waitingGroups[floor][1]->head->next;
+		while(temp != NULL) {
+			llist_append(el->insideElevator[((group*)temp->data)->to],(group*)temp->data);
+			count += ((group*)temp->data)->numberOfPeople;
+			el->totalWeight += ((group*)temp->data)->weight;
+			temp = temp->next;
+		}
+		llist_clear_save_nodes(el->waitingGroups[floor][1]);
+	}
 
 	if(el->totalWeight > WEIGHT_LIMIT) {
 		// TODO: Some code here

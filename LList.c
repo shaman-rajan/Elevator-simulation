@@ -141,9 +141,13 @@ LList* llist_remove( LList* lst, int idx )
     return lst;
 }
 
-LList* llist_clear( LList* lst )
+LList* llist_clear_memory( LList* lst )
 {
 	while(llist_size(lst) != 0) lst = llist_remove_first(lst);
 	return lst;
 }
 
+LList* llist_clear_save_nodes( LList* lst ) {
+	while(llist_size(lst) != 0) lst = llist_remove(lst, 0);
+	return lst;
+}

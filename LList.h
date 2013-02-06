@@ -41,8 +41,11 @@ LList* llist_remove_last( LList* lst );
 LList* llist_remove_first( LList* lst );
 // Remove an element from an arbitrary position in the list
 LList* llist_remove( LList* lst, int idx );
-// Clears the list
-LList* llist_clear( LList* lst );
+// Clears the list, and deletes nodes from memory
+LList* llist_clear_memory( LList* lst );
+// Empties list but does not delete nodes from memory
+LList* llist_clear_save_nodes( LList* lst );
+
 
 #endif // LLIST_H
 

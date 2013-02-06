@@ -31,7 +31,6 @@
 #define MIN_WEIGHT 60			// Min weight of a person
 #define MIN_STOP 5				// Stop time limit at a floor
 #define MAX_STOP 10				// Stop time limit at a floor
-#define MAX_DESTINATIONS 100	// Array size of elevator destinations
 #define LIFT_ENTRY_TIME 1		// Time 1 person takes to get in or out of lift
 
 /*
@@ -46,7 +45,7 @@ struct _elevator {
 	int downStops[FLOORS];
 	// Group lists
 	LList* insideElevator[FLOORS];
-	LList* waitingGroups[FLOORS];
+	LList* waitingGroups[FLOORS][2];
 	int totalWeight;
 };
 typedef struct _elevator elevator;
