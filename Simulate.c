@@ -249,7 +249,8 @@ int getNextDown(int dests[], float floor) {
 	int next = floor;
 	do {
 		if(dests[next] == 1) return next;
-		next = (next - 1) % FLOORS;
+		next = next - 1;
+		if(next < 0) next = 4;
 	} while(next != (int)floor);
 	return -1;
 }
