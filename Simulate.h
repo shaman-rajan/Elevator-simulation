@@ -68,7 +68,7 @@ int getNumberOfGroups();
 group* newRandomGroup();
 int getRandomSize();
 elevator* chooseElevator( elevator* el1, elevator* el2, int from, int to);
-void moveElevator(elevator* el, int time);
+void moveElevator(elevator* el, int time, FILE* fp);
 int getNextUp(int dests[], float floor);
 int getNextDown(int dests[], float floor);
 int getOnAndOff(elevator* el, int floor);
